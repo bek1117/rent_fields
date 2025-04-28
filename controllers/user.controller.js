@@ -1,6 +1,6 @@
 const db = require("../config/db");
-const querryGen = require("../helpers/querry");
-const  filterGen = require("../helpers/filter")
+const queryGen = require("../helpers/querry");
+const filterGen = require("../helpers/filter");
 
 const createUser = (req, res) => {
   const { first_name, last_name, email, password, phone, userRole } = req.body;
@@ -15,7 +15,7 @@ const createUser = (req, res) => {
     (error, result) => {
       if (error) {
         console.error("Error in creating user:", error);
-        return res.status(500).send({ message: "Error in server" });
+        return res.status(500).send({ message: "Error in creating user" });
       }
 
       res
@@ -26,29 +26,28 @@ const createUser = (req, res) => {
 };
 
 const getAllUsers = (req, res) => {
-  db.query(`SELECT * FROM users`, (err, result) => {
-    if (err) {
-      console.error("Error in getting users data:", err);
-      return res.status(500).send("Error in getting users data");
+  db.query(`SELECT * FROM users`, (error, result) => {
+    if (error) {
+      console.error("Error in getting users data:", error);
+      return res.status(500).send({ message: "Error in getting users data" });
     }
-    res.send(result);
+    res.status(200).send(result);
   });
 };
 
 const getUserById = (req, res) => {
-  console.log(req.params.id);
   db.query(
     `SELECT * FROM users WHERE id = ?`,
     [req.params.id],
-    (err, result) => {
-      if (err) {
-        console.error("Error in getting user data:", err);
-        return res.status(500).send("Error in getting user data");
+    (error, result) => {
+      if (error) {
+        console.error("Error in getting user data:", error);
+        return res.status(500).send({ message: "Error in getting user data" });
       }
       if (result.length === 0) {
         return res.status(404).send({ message: "User not found" });
       }
-      res.send(result[0]);
+      res.status(200).send(result[0]);
     }
   );
 };
@@ -57,7 +56,11 @@ const removeUserById = (req, res) => {
   const { id } = req.params;
   db.query(`DELETE FROM users WHERE id = ?`, [id], (error, result) => {
     if (error) {
-      return res.status(500).send("Error in deleting user");
+      console.error("Error in deleting user:", error);
+      return res.status(500).send({ message: "Error in deleting user" });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: "User not found" });
     }
     res.status(200).send({ message: "User deleted successfully" });
   });
@@ -70,7 +73,7 @@ const updateUserById = (req, res) => {
     return res.status(400).send({ message: "No fields provided for update" });
   }
 
-  const updated = querryGen(data);
+  const updated = queryGen(data);
   const values = [...Object.values(data), req.params.id];
 
   db.query(
@@ -79,7 +82,10 @@ const updateUserById = (req, res) => {
     (error, result) => {
       if (error) {
         console.error("Error updating user:", error);
-        return res.status(500).send("Error updating user");
+        return res.status(500).send({ message: "Error updating user" });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).send({ message: "User not found" });
       }
       res.status(200).send({ message: "User updated successfully" });
     }
@@ -87,35 +93,91 @@ const updateUserById = (req, res) => {
 };
 
 const getUsersByRole = (req, res) => {
-  const {role} = req.body
-  if (role) {
-    db.query(`SELECT * FROM users WHERE userRole = ?`, [role], (error, result) => {
-      if (error) {
-        console.error("Error updating user:", error);
-        return res.status(500).send("Error updating user");
-      }
-      res.status(200).send({data:result})
-    });
-  } else {
-    res.status(404).send({messege:"Bu yerda bunday role mavjud emas!"})
+  const { role } = req.body;
+  if (!role) {
+    return res.status(400).send({ message: "Role is required" });
   }
-}
 
-const getUserBydata = (req, res) => {
-  const data  = req.body
-  if (data) {
-    const updated = filterGen(data)
-    console.log("keys:", updated);
-    const values = [...Object.values(data)]
-    console.log(values);
-    db.query(`SELECT * FROM users where ${updated}`, values, (error, result) => {
+  db.query(
+    `SELECT * FROM users WHERE userRole = ?`,
+    [role],
+    (error, result) => {
       if (error) {
-        console.error("Error updating user:", error);
-        return res.status(500).send("Error in getting user");
+        console.error("Error in getting users by role:", error);
+        return res
+          .status(500)
+          .send({ message: "Error in getting users by role" });
       }
-      res.status(200).send({ data: result })
-    })
+      res.status(200).send({ data: result });
+    }
+  );
+};
+
+const getUserByData = (req, res) => {
+  const data = req.body;
+  if (!data || !Object.keys(data).length) {
+    return res.status(400).send({ message: "No data provided for filtering" });
   }
+
+  const updated = filterGen(data);
+  const values = [...Object.values(data)];
+
+  db.query(`SELECT * FROM users WHERE ${updated}`, values, (error, result) => {
+    if (error) {
+      console.error("Error in getting user by data:", error);
+      return res.status(500).send({ message: "Error in getting user by data" });
+    }
+    res.status(200).send({ data: result });
+  });
+};
+
+const getUsersFields = (req, res) => {
+  const { first_name, last_name } = req.body;
+  if (!first_name || !last_name) {
+    return res
+      .status(400)
+      .send({ message: "First name and last name are required" });
+  }
+
+  db.query(
+    `
+    SELECT u.name, f.name, i.image_url 
+    FROM users u
+    LEFT JOIN fields f ON u.id = f.owner_id
+    LEFT JOIN images i ON f.id = i.stadion_id
+    WHERE u.first_name = ? AND u.last_name = ?
+    `,
+    [first_name, last_name],
+    (error, result) => {
+      if (error) {
+        console.error("Error in getting users fields:", error);
+        return res
+          .status(500)
+          .send({ message: "Error in getting users fields" });
+      }
+      res.status(200).send({ data: result });
+    }
+  );
+};
+
+const getUserreviews = (req, res) => {
+  const { id } = req.body
+  if (!id) return res.status(400).send({ messege: "ID is not provided" })
+  db.query(
+    `
+    SELECT r.comment, r.rating, r.stadion_id
+    FROM users u
+    JOIN review r
+    ON
+    r.user_id = u.id
+    WHERE u.id = ?
+    `, [id], (error, result) => {
+      if (error) return res.status(500).send({ error: error.message })
+      res
+        .status(200)
+        .send({ data: result })
+    }
+  );
 }
 
 module.exports = {
@@ -125,6 +187,7 @@ module.exports = {
   removeUserById,
   updateUserById,
   getUsersByRole,
-  getUserBydata,
+  getUserByData,
+  getUsersFields,
+  getUserreviews
 };
-

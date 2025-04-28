@@ -50,3 +50,71 @@ exports.deleteFieldById = (req, res) => {
     res.status(200).json({ message: "Field deleted" });
   });
 };
+
+exports.getFieldOwner = (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    `
+    SELECT 
+      f.name AS field_name,
+      CONCAT(u.first_name, ' ', u.last_name) AS owner_name
+    FROM 
+      fields f
+    LEFT JOIN 
+      users u ON u.id = f.owner_id
+    WHERE 
+      f.id = ?
+    `,
+    [id],
+    (error, result) => {
+      if (error) {
+        console.error("Error fetching field and owner:", error);
+        return res
+          .status(500)
+          .send({ message: "Server error while fetching field and owner" });
+      }
+
+      if (result.length === 0) {
+        return res.status(404).send({ message: "Field not found" });
+      }
+
+      res.status(200).send({ data: result[0] });
+    }
+  );
+};
+
+exports.getfielsdwithBookingTime = (req, res) => {
+  const { minPrice, maxPrice } = req.body;
+
+  db.query(
+    `
+    SELECT 
+        f.name AS field_name,
+        f.price_per_hour,
+        b.booking_date,
+        b.start_time,
+        b.end_time,
+        TIMESTAMPDIFF(HOUR, b.start_time, b.end_time) AS booking_duration
+    FROM 
+        fields f
+    JOIN 
+        booking b ON b.stadion_id = f.id
+    WHERE 
+        f.price_per_hour BETWEEN ? AND ?
+        AND TIMESTAMPDIFF(HOUR, b.start_time, b.end_time) > 2
+    ORDER BY 
+        b.booking_date;
+    `,
+    [minPrice, maxPrice],
+    (error, result) => {
+      if (error) {
+        console.error("Error fetching fields and bookings:", error);
+        return res
+          .status(500)
+          .send({ message: "Server error fetching fields and bookings" });
+      }
+      res.status(200).send({ data: result });
+    }
+  );
+};
