@@ -1,4 +1,4 @@
--- Active: 1745317047940@@127.0.0.1@3306@rent_field
+-- Active: 1745317047940@@127.0.0.1@3306
 
 CREATE DATABASE IF NOT EXISTS rent_field;
 

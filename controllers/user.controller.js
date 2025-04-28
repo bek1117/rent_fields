@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const querryGen = require("../helpers/querry");
+const  filterGen = require("../helpers/filter")
 
 const createUser = (req, res) => {
   const { first_name, last_name, email, password, phone, userRole } = req.body;
@@ -35,6 +36,7 @@ const getAllUsers = (req, res) => {
 };
 
 const getUserById = (req, res) => {
+  console.log(req.params.id);
   db.query(
     `SELECT * FROM users WHERE id = ?`,
     [req.params.id],
@@ -84,10 +86,45 @@ const updateUserById = (req, res) => {
   );
 };
 
+const getUsersByRole = (req, res) => {
+  const {role} = req.body
+  if (role) {
+    db.query(`SELECT * FROM users WHERE userRole = ?`, [role], (error, result) => {
+      if (error) {
+        console.error("Error updating user:", error);
+        return res.status(500).send("Error updating user");
+      }
+      res.status(200).send({data:result})
+    });
+  } else {
+    res.status(404).send({messege:"Bu yerda bunday role mavjud emas!"})
+  }
+}
+
+const getUserBydata = (req, res) => {
+  const data  = req.body
+  if (data) {
+    const updated = filterGen(data)
+    console.log("keys:", updated);
+    const values = [...Object.values(data)]
+    console.log(values);
+    db.query(`SELECT * FROM users where ${updated}`, values, (error, result) => {
+      if (error) {
+        console.error("Error updating user:", error);
+        return res.status(500).send("Error in getting user");
+      }
+      res.status(200).send({ data: result })
+    })
+  }
+}
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   removeUserById,
   updateUserById,
+  getUsersByRole,
+  getUserBydata,
 };
+
